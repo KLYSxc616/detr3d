@@ -26,11 +26,12 @@ input_modality = dict(
     use_map=False,
     use_external=False)
 
+# 按照backbone, neck, head的结构设置模型参数
 model = dict(
     type='Detr3D',
     use_grid_mask=True,
     img_backbone=dict(
-        type='ResNet',
+        type='ResNet',  # 在mmdet/models/backbones/resnet.py 中实现。
         depth=101,
         num_stages=4,
         out_indices=(0, 1, 2, 3),
@@ -41,7 +42,7 @@ model = dict(
         dcn=dict(type='DCNv2', deform_groups=1, fallback_on_stride=False),
         stage_with_dcn=(False, False, True, True)),
     img_neck=dict(
-        type='FPN',
+        type='FPN',  # 在mmdet/models/necks/fpn.py 中实现。
         in_channels=[256, 512, 1024, 2048],
         out_channels=256,
         start_level=1,

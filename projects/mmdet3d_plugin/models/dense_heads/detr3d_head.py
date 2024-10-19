@@ -47,11 +47,15 @@ class Detr3DHead(DETRHead):
         else:
             self.code_weights = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2]
         
-        self.bbox_coder = build_bbox_coder(bbox_coder)
+        self.bbox_coder = build_bbox_coder(
+            bbox_coder)  # 基于 bbox_coder 配置初始化边界框编码器
         self.pc_range = self.bbox_coder.pc_range
-        self.num_cls_fcs = num_cls_fcs - 1
+        self.num_cls_fcs = num_cls_fcs - 1  # 计算并保存要使用的全连接层数。
+        # 调用父类DETRHead的构造函数:
         super(Detr3DHead, self).__init__(
             *args, transformer=transformer, **kwargs)
+        # 定义权重参数:
+        # 将 code_weights 转换为不可训练的 nn.Parameter 类型的张量，以便在损失计算中使用。
         self.code_weights = nn.Parameter(torch.tensor(
             self.code_weights, requires_grad=False), requires_grad=False)
 
@@ -101,6 +105,7 @@ class Detr3DHead(DETRHead):
             for m in self.cls_branches:
                 nn.init.constant_(m[-1].bias, bias_init)
 
+    # 上层调用:class Detr3D :outs = self.pts_bbox_head(pts_feats, img_metas)
     def forward(self, mlvl_feats, img_metas):
         """Forward function.
         Args:

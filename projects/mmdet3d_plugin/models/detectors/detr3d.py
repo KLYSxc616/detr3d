@@ -7,23 +7,25 @@ from mmdet3d.models.detectors.mvx_two_stage import MVXTwoStageDetector
 from projects.mmdet3d_plugin.models.utils.grid_mask import GridMask
 
 
+# 主函数，程序start
 @DETECTORS.register_module()
 class Detr3D(MVXTwoStageDetector):
     """Detr3D."""
 
     def __init__(self,
-                 use_grid_mask=False,
-                 pts_voxel_layer=None,
-                 pts_voxel_encoder=None,
-                 pts_middle_encoder=None,
-                 pts_fusion_layer=None,
-                 img_backbone=None,
-                 pts_backbone=None,
+                 use_grid_mask=False,  # 是否使用GridMask数据增强技术
+                 pts_voxel_layer=None,  # 位置点数据转换成体素（Voxel）层的配置
+                 pts_voxel_encoder=None,  # 对体素（Voxel）进行特征编码的配置
+                 pts_middle_encoder=None,  # 位置点中间层的编码器配置
+                 pts_fusion_layer=None,  # 位置点和其他数据（比如图像）融合层的配置
+                 img_backbone=None,  # 图像的backbone网络配置。这个网络负责提取图像的特征。
+                 pts_backbone=None,  # 点云的backbone网络配置。提取3D点云数据的特征。
+                 # 图像和点云的“颈部”网络配置，分别用于进一步加工图像特征，如特征金字塔网络（FPN）
                  img_neck=None,
                  pts_neck=None,
-                 pts_bbox_head=None,
-                 img_roi_head=None,
-                 img_rpn_head=None,
+                 pts_bbox_head=None,  # bounding box点的head
+                 img_roi_head=None,  # 图像感兴趣head
+                 img_rpn_head=None,  # 图像的区域提议网络
                  train_cfg=None,
                  test_cfg=None,
                  pretrained=None):
@@ -36,23 +38,28 @@ class Detr3D(MVXTwoStageDetector):
         self.grid_mask = GridMask(True, True, rotate=1, offset=False, ratio=0.5, mode=1, prob=0.7)
         self.use_grid_mask = use_grid_mask
 
+    """
+        img: 一个包含了批量图像数据的torch.Tensor, 形状通常为(B, C, H, W)，分别表示批大小、通道数、高度和宽度。
+        img_metas: 一个列表，包含关于每个图像的元信息,每个图像的元信息通常都是一个字典dict,包含如图像尺寸、缩放、翻转等信息。
+    """
     def extract_img_feat(self, img, img_metas):
         """Extract features of images."""
-        B = img.size(0)
+        B = img.size(0)  # 获取批量大小B
         if img is not None:
-            input_shape = img.shape[-2:]
+            input_shape = img.shape[-2:]  # 获得 (H, W)
             # update real input shape of each single img
             for img_meta in img_metas:
                 img_meta.update(input_shape=input_shape)
 
+            # img: [B, N, C, H, W], img.size(0)即批量 B == 1
             if img.dim() == 5 and img.size(0) == 1:
-                img.squeeze_()
+                img.squeeze_()  # squeeze_降维用于移除形状中大小为1的维度，即去掉批量维度
             elif img.dim() == 5 and img.size(0) > 1:
                 B, N, C, H, W = img.size()
                 img = img.view(B * N, C, H, W)
             if self.use_grid_mask:
-                img = self.grid_mask(img)
-            img_feats = self.img_backbone(img)
+                img = self.grid_mask(img)  # 使用mask数据增强
+            img_feats = self.img_backbone(img)  # 通过backbone提取图像特征
             if isinstance(img_feats, dict):
                 img_feats = list(img_feats.values())
         else:
@@ -95,6 +102,7 @@ class Detr3D(MVXTwoStageDetector):
         losses = self.pts_bbox_head.loss(*loss_inputs)
         return losses
 
+    # 强制将 img 和 points 转换为 float32 精度
     @force_fp32(apply_to=('img', 'points'))
     def forward(self, return_loss=True, **kwargs):
         """Calls either forward_train or forward_test depending on whether
@@ -106,9 +114,9 @@ class Detr3D(MVXTwoStageDetector):
         list[list[dict]]), with the outer list indicating test time
         augmentations.
         """
-        if return_loss:
+        if return_loss:  # 一般在训练时候
             return self.forward_train(**kwargs)
-        else:
+        else:  # 一般在预测阶段使用
             return self.forward_test(**kwargs)
 
     def forward_train(self,
@@ -120,7 +128,7 @@ class Detr3D(MVXTwoStageDetector):
                       gt_bboxes=None,
                       img=None,
                       proposals=None,
-                      gt_bboxes_ignore=None,
+                      gt_bboxes_ignore=None,  # 忽略的二维真实框（例如困难样本）
                       img_depth=None,
                       img_mask=None):
         """Forward training function.
@@ -141,6 +149,7 @@ class Detr3D(MVXTwoStageDetector):
                 (N, C, H, W). Defaults to None.
             proposals ([list[torch.Tensor], optional): Predicted proposals
                 used for training Fast RCNN. Defaults to None.
+                【训练时用于Fast RCNN的预测提案框。】
             gt_bboxes_ignore (list[torch.Tensor], optional): Ground truth
                 2D boxes in images to be ignored. Defaults to None.
         Returns:
